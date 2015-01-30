@@ -1,6 +1,31 @@
 #!/usr/bin/python
 
+from collections import OrderedDict as odict
+
+import ebnf
+
+class Element:
+
+    def __init__(self, bnf):
+        self.bnf = bnf
+        ebnf.parse(bnf)
+        self.attlist = odict()
+
+    def set_attlist(self, attlist):
+        for (n, v, t) in attlist:
+            self.attlist[n] = (v, t)
+
+    def __repr__(self):
+        return "tag<[{}] {}>".format(self.bnf, str(self.attlist))
+
+
 class Parser:
+
+    def __init__(self, data=None):
+        self.entities = odict()
+        self.elements = odict()
+        if data is not None:
+            self.parse(data)
 
     def parse(self, data):
         c = 0
@@ -20,7 +45,7 @@ class Parser:
             if e == -1:
                 raise Exception("Tag not closed at pos " + str(s))
             if not comment:
-                self.__process_tag(data[s + 2 : e])
+                self.__process_tag(data[s + 2 : e].decode())
             c = e + 1
 
     # private
@@ -28,44 +53,44 @@ class Parser:
     def __process_tag(self, tag):
         data = tag.rstrip().split(maxsplit=2)
         if len(data) != 3:
-            raise Exception("Tag is invalid: " + str(tag))
+            raise Exception("Tag is invalid: " + tag)
         t, n, v = data
-        if t == b"ENTITY":
-            if n == b"%":
+        if t == "ENTITY":
+            if n == "%":
                 data = v.split(maxsplit=1)
                 if len(data) != 2:
-                    raise Exception("Entity is invalid: " + str(tag))
+                    raise Exception("Entity is invalid: " + tag)
                 n, v = data
-                if v[0] != 34 or v[-1] != 34: # 34 = ord "
-                    raise Exception("Parameter entity value is not quoted: " + str(tag))
+                if v[0] != '"' or v[-1] != '"':
+                    raise Exception("Parameter entity value is not quoted: " + tag)
                 self.__process_p_entity(n, v[1:-1])
             else:
                 raise Exception("Sorry, non-parameter entities are not implemented yet")
-        elif t == b"ELEMENT":
+        elif t == "ELEMENT":
             self.__process_element(n, v)
-        elif t == b"ATTLIST":
+        elif t == "ATTLIST":
             self.__process_attlist(n, v)
         else:
-            raise Exception("Unknown tag type " + str(t))
+            raise Exception("Unknown tag type " + t)
 
     def __process_element(self, name, value):
-#        print("Declare element " + str(name) + " as " + str(value))
-        pass
+        self.elements[name] = Element(value)
 
     def __process_attlist(self, name, value):
         attrs = value.split()
         if len(attrs) % 3 != 0:
             raise Exception("Attribute list is invalid: " + str(attrs))
         attrs = [ (attrs[i], attrs[i + 1], attrs[i + 2]) for i in range(0, len(attrs), 3) ]
-        print("Declare attlist " + str(name) + " as ", attrs)
+        if name not in self.elements:
+            raise Exception("No such element: " + name)
+        self.elements[name].set_attlist(attrs)
 
 
     def __process_p_entity(self, name, value):
-#        print("Declare entity " + str(name) + " as " + str(value))
-        pass
+        self.entities[name] = value
 
 def parse(data):
-    Parser().parse(data)
+    p = Parser(data)
 
 
 
