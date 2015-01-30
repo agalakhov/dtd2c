@@ -7,8 +7,7 @@ import ebnf
 class Element:
 
     def __init__(self, bnf):
-        self.bnf = bnf
-        ebnf.parse(bnf)
+        self.bnf = ebnf.parse(bnf)
         self.attlist = odict()
 
     def set_attlist(self, attlist):
